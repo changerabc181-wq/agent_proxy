@@ -1,0 +1,82 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: "Nunito", sans-serif;
+  background:
+    radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.45), transparent 20%),
+    radial-gradient(circle at 90% 15%, rgba(255, 214, 184, 0.34), transparent 22%),
+    linear-gradient(180deg, var(--bg-3) 0%, var(--bg) 48%, var(--bg-2) 100%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  background: none;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border: 1px solid rgba(106, 69, 77, 0.08);
+  border-radius: 20px;
+  color: var(--ink);
+  background: linear-gradient(180deg, rgba(255, 247, 242, 0.94), rgba(240, 210, 200, 0.9));
+  box-shadow: var(--shadow-press);
+  outline: none;
+}
+
+input::placeholder {
+  color: #9a7d87;
+}
+
+input:focus,
+select:focus {
+  border-color: rgba(91, 123, 199, 0.22);
+  box-shadow: var(--shadow-press), 0 0 0 4px rgba(185, 214, 255, 0.35);
+}
+
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+h1,
+h2,
+h3,
+strong {
+  font-family: "Baloo 2", cursive;
+}
+
+.muted,
+.empty,
+.subtle {
+  color: var(--muted);
+}
+
+.hidden {
+  display: none !important;
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
+}

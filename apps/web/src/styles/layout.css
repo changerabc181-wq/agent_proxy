@@ -1,0 +1,169 @@
+.background-blob,
+.background-dots {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.background-blob {
+  filter: blur(26px);
+  opacity: 0.8;
+}
+
+.blob-a,
+.blob-b,
+.blob-c {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.blob-a {
+  top: 3%;
+  left: 5%;
+  width: 220px;
+  height: 220px;
+  background: rgba(255, 228, 196, 0.72);
+}
+
+.blob-b {
+  top: 30%;
+  right: 6%;
+  width: 280px;
+  height: 280px;
+  background: rgba(212, 205, 255, 0.55);
+}
+
+.blob-c {
+  bottom: 6%;
+  left: 40%;
+  width: 240px;
+  height: 240px;
+  background: rgba(186, 227, 208, 0.58);
+}
+
+.background-dots {
+  background-image: radial-gradient(rgba(124, 84, 92, 0.09) 1.1px, transparent 1.1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.36), transparent 82%);
+}
+
+.layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 24px;
+  min-height: 100vh;
+  padding: 22px;
+}
+
+.sidebar,
+.topbar,
+.panel,
+.modal {
+  background: linear-gradient(180deg, rgba(245, 211, 200, 0.95), rgba(242, 204, 194, 0.92));
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-clay);
+}
+
+.sidebar {
+  padding: 22px 18px;
+  border-radius: 42px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.main {
+  display: grid;
+  gap: 20px;
+}
+
+.topbar {
+  border-radius: 30px;
+  padding: 20px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.content-grid,
+.metric-grid,
+.form-grid,
+.stack-panel,
+.list,
+.nav {
+  display: grid;
+  gap: 14px;
+}
+
+.two-col {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.split-admin {
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
+}
+
+.panel,
+.hero {
+  border-radius: 30px;
+  padding: 20px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.workspace-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
+}
+
+.stack-panel {
+  align-content: start;
+}
+
+.view {
+  display: none;
+  gap: 18px;
+}
+
+.view.active {
+  display: grid;
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hero,
+  .two-col,
+  .split-admin {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .layout {
+    padding: 14px;
+    gap: 16px;
+  }
+
+  .sidebar,
+  .topbar,
+  .panel,
+  .hero,
+  .modal {
+    border-radius: 24px;
+  }
+
+  .topbar {
+    padding: 16px;
+    flex-direction: column;
+  }
+}

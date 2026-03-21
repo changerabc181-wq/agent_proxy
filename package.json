@@ -1,0 +1,14 @@
+{
+  "name": "agent-proxy",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @agent-proxy/shared && npm run build -w @agent-proxy/server && npm run build -w @agent-proxy/web",
+    "check": "npm run check -w @agent-proxy/shared && npm run check -w @agent-proxy/server && npm run check -w @agent-proxy/web"
+  }
+}
+

@@ -1,0 +1,11 @@
+{
+  "name": "@agent-proxy/server",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node src/server.mjs",
+    "build": "node -e \"console.log('No build step configured for prototype server')\"",
+    "check": "node --check src/server.mjs"
+  }
+}
+

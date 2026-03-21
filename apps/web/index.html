@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Proxy Clay Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="background-blob">
+      <div class="blob-a"></div>
+      <div class="blob-b"></div>
+      <div class="blob-c"></div>
+    </div>
+    <div class="background-dots"></div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">AP</div>
+          <div>
+            <p class="eyebrow">Clay Control Plane</p>
+            <h1>Soft Proxy Studio</h1>
+            <p class="muted">把代理路由、用户额度和审计轨迹做成一间可触摸的黏土工作室。</p>
+          </div>
+        </div>
+
+        <nav class="nav">
+          <button data-view="dashboard" class="nav-item active">
+            <span class="nav-icon nav-icon-grid" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </span>
+            <span class="nav-copy">
+              <strong>Pulse Garden</strong>
+              <small>总览系统脉搏与使用状态</small>
+            </span>
+          </button>
+          <button data-view="upstreams" class="nav-item admin-only">
+            <span class="nav-icon nav-icon-stack" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+            <span class="nav-copy">
+              <strong>Route Clay</strong>
+              <small>塑形上游路由和映射</small>
+            </span>
+          </button>
+          <button data-view="users" class="nav-item admin-only">
+            <span class="nav-icon nav-icon-users" aria-hidden="true">
+              <span></span><span></span>
+            </span>
+            <span class="nav-copy">
+              <strong>Member Pods</strong>
+              <small>维护成员、额度和密钥</small>
+            </span>
+          </button>
+          <button data-view="audit" class="nav-item admin-only">
+            <span class="nav-icon nav-icon-wave" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+            <span class="nav-copy">
+              <strong>Trace Ribbon</strong>
+              <small>回看请求轨迹与事件链</small>
+            </span>
+          </button>
+          <button data-view="portal" class="nav-item">
+            <span class="nav-icon nav-icon-ring" aria-hidden="true">
+              <span></span>
+            </span>
+            <span class="nav-copy">
+              <strong>My Pocket</strong>
+              <small>查看我的 Key 与用量</small>
+            </span>
+          </button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <span class="badge">Studio Note</span>
+          <p>左侧放选择，右侧放编辑。每个面板都像一团被捏好的软黏土，始终可点、可改、可回看。</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div class="topbar-copy">
+            <p class="breadcrumb">
+              <span>Clay Studio</span>
+              <span>/</span>
+              <span id="breadcrumb-current">总览看板</span>
+            </p>
+            <h2 id="page-title">总览看板</h2>
+          </div>
+
+          <div class="topbar-meta">
+            <div class="topbar-chip">
+              <span class="status-label">系统触感</span>
+              <strong id="system-status">未连接</strong>
+              <small id="system-time">等待健康检查</small>
+            </div>
+            <div class="toolbar-group">
+              <div class="toolbar-icon" aria-hidden="true">
+                <span></span>
+              </div>
+              <div class="toolbar-icon subtle-tool" aria-hidden="true">
+                <span></span>
+              </div>
+              <div class="profile-card">
+                <div class="profile-copy">
+                  <strong id="current-user">未登录</strong>
+                  <small id="current-role">Logged off</small>
+                </div>
+                <div class="profile-avatar" aria-hidden="true">A</div>
+              </div>
+            </div>
+            <div class="status-actions">
+              <button id="open-auth" class="secondary">登录</button>
+              <button id="logout" class="ghost hidden">退出登录</button>
+            </div>
+          </div>
+        </header>
+
+        <section id="view-dashboard" class="view active">
+          <section class="hero panel">
+            <div class="hero-copy">
+              <p class="eyebrow">Soft Operations</p>
+              <h3>让路由、配额和审计都像黏土一样柔软，但层次清楚。</h3>
+              <p class="muted">这个工作区把控制面、个人空间和请求回放放在同一张画布上。它不是传统硬质后台，而是一组有重量感、有回弹感的操作组件。</p>
+              <div class="hero-actions">
+                <button class="primary" data-view-target="upstreams" type="button">进入上游工坊</button>
+                <button class="ghost" data-view-target="users" type="button">查看成员配额</button>
+                <button class="secondary" id="dashboard-refresh" type="button">刷新画布</button>
+              </div>
+            </div>
+
+            <div class="metric-grid" id="metrics"></div>
+          </section>
+
+          <div class="content-grid two-col">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Provider mood</p>
+                  <h3>上游健康气泡</h3>
+                </div>
+                <span class="badge subtle">实时脉搏</span>
+              </div>
+              <div id="provider-health" class="list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Recent traces</p>
+                  <h3>最近请求碎片</h3>
+                </div>
+                <span class="badge subtle">点击展开细节</span>
+              </div>
+              <div id="recent-requests" class="list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-upstreams" class="view">
+          <section class="hero panel compact-hero workspace-hero">
+            <div class="hero-copy">
+              <p class="eyebrow">Route Workshop</p>
+              <span class="hero-pill">Clay routing bench</span>
+              <h3>把每个上游都捏成一个可编辑的软体模块。</h3>
+              <p class="muted">这里负责塑形路由目标、默认模型和兜底映射。用户额度仍然属于成员层，不和上游凭据混在一起。</p>
+              <div class="hero-actions">
+                <button class="primary" id="hero-upstream-focus" type="button">编辑当前上游</button>
+                <button class="ghost" id="hero-upstream-reset" type="button">切到配额面板</button>
+              </div>
+            </div>
+
+            <div class="metric-grid quick-metrics">
+              <article class="metric-card mini lilac">
+                <p class="muted">上游团块</p>
+                <strong id="upstream-count">0</strong>
+              </article>
+              <article class="metric-card mini sand">
+                <p class="muted">活跃主线</p>
+                <strong id="active-upstream-count">0</strong>
+              </article>
+              <article class="metric-card mini mint">
+                <p class="muted">成员数</p>
+                <strong id="user-count">0</strong>
+              </article>
+              <article class="metric-card mini cloud">
+                <p class="muted">有限额度</p>
+                <strong id="quota-user-count">0</strong>
+              </article>
+            </div>
+          </section>
+
+          <div id="upstream-alert" class="inline-alert hidden">invalid token</div>
+
+          <div class="tab-strip" id="upstream-tabs" role="tablist" aria-label="upstream filters">
+            <button class="tab-chip active" data-upstream-tab="all" type="button">全部上游</button>
+            <button class="tab-chip" data-upstream-tab="active" type="button">启用中</button>
+            <button class="tab-chip" data-upstream-tab="granted" type="button">成员侧</button>
+            <button class="tab-chip" data-upstream-tab="quota" type="button">配额侧</button>
+          </div>
+
+          <div class="content-grid split-admin">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Route roster</p>
+                  <h3>已塑形的上游列表</h3>
+                </div>
+                <span class="badge">管理员</span>
+              </div>
+              <div id="upstreams" class="list"></div>
+            </section>
+
+            <section class="panel editor-panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Clay editor</p>
+                  <h3>新建或调整上游路由</h3>
+                </div>
+                <span class="badge subtle">默认模型 + 兜底映射</span>
+              </div>
+              <div class="editor-callout">
+                <strong>编辑提示</strong>
+                <p>左侧选择已有上游时会进入编辑模式，不选择时就是一块新的草稿黏土。</p>
+              </div>
+              <form id="upstream-form" class="form-grid">
+                <label>
+                  名称
+                  <input name="name" required placeholder="OpenRouter 主线路" />
+                </label>
+                <label>
+                  Provider
+                  <select name="provider">
+                    <option value="openrouter">openrouter</option>
+                    <option value="minimax">minimax</option>
+                    <option value="generic-openai">generic-openai</option>
+                  </select>
+                </label>
+                <label class="full">
+                  Base URL
+                  <input name="baseUrl" required placeholder="https://openrouter.ai/api/v1" />
+                </label>
+                <label class="full">
+                  Upstream Key
+                  <input name="apiKey" required placeholder="sk-..." />
+                </label>
+                <label>
+                  默认模型
+                  <input name="defaultModel" required placeholder="glm-5" />
+                </label>
+                <label>
+                  优先级
+                  <input name="priority" type="number" value="100" />
+                </label>
+                <label>
+                  协议
+                  <select name="protocol">
+                    <option value="openai">openai</option>
+                    <option value="anthropic">anthropic</option>
+                  </select>
+                </label>
+                <label>
+                  兜底映射模型
+                  <input name="mappingDefaultModel" placeholder="glm-5" />
+                </label>
+                <button id="upstream-submit" class="primary full" type="submit">保存上游配置</button>
+              </form>
+              <div class="action-row">
+                <button id="upstream-toggle-button" class="secondary full-width" type="button">先选择一个上游</button>
+                <button id="upstream-reset-button" class="ghost full-width" type="button">新建模式</button>
+              </div>
+              <pre id="upstream-form-output" class="console">等待提交</pre>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-users" class="view">
+          <div class="content-grid split-admin">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Member pods</p>
+                  <h3>成员与当前额度</h3>
+                </div>
+                <span class="badge">管理员</span>
+              </div>
+              <div id="users" class="list"></div>
+            </section>
+
+            <section class="stack-panel">
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Create member</p>
+                    <h3>新增成员</h3>
+                  </div>
+                </div>
+                <form id="create-user-form" class="form-grid">
+                  <label>
+                    邮箱
+                    <input name="email" type="email" required />
+                  </label>
+                  <label>
+                    显示名称
+                    <input name="displayName" required />
+                  </label>
+                  <label class="full">
+                    密码
+                    <input name="password" type="password" required />
+                  </label>
+                  <button class="primary full" type="submit">创建用户</button>
+                </form>
+                <pre id="user-form-output" class="console">等待管理员操作</pre>
+              </section>
+
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Quota clay</p>
+                    <h3 id="quota-panel-title">请选择一个用户</h3>
+                  </div>
+                </div>
+                <form id="quota-form" class="form-grid">
+                  <label>
+                    配额模式
+                    <select name="mode">
+                      <option value="limited">有限额度</option>
+                      <option value="unlimited">无限额度</option>
+                    </select>
+                  </label>
+                  <label>
+                    月度额度
+                    <input name="monthlyTokenLimit" type="number" placeholder="100000" />
+                  </label>
+                  <label class="full">
+                    剩余额度
+                    <input name="remainingTokens" type="number" placeholder="50000" />
+                  </label>
+                  <button class="primary full" type="submit">保存配额策略</button>
+                </form>
+                <pre id="quota-form-output" class="console">先从左侧选择一个用户</pre>
+              </section>
+
+              <section class="panel">
+                <div class="panel-head">
+                  <div>
+                    <p class="eyebrow">Member action</p>
+                    <h3 id="user-action-title">未选择用户</h3>
+                  </div>
+                </div>
+                <div id="user-detail-card" class="detail-card">
+                  <p class="empty">从左侧选择用户后，这里会显示该用户的状态、额度和密钥操作。</p>
+                </div>
+                <div id="user-api-key-list" class="list compact-list">
+                  <p class="empty">这里会显示当前用户的协议专属 Key。</p>
+                </div>
+                <form id="issue-key-form" class="form-grid">
+                  <label>
+                    Key 名称
+                    <input name="name" placeholder="Claude Code Key" />
+                  </label>
+                  <label>
+                    协议类型
+                    <select name="protocol">
+                      <option value="anthropic">anthropic</option>
+                      <option value="openai">openai</option>
+                    </select>
+                  </label>
+                  <button class="primary full" type="submit">为当前用户签发 Key</button>
+                </form>
+                <div class="action-row">
+                  <button id="toggle-user-button" class="secondary full-width" type="button">启用 / 禁用用户</button>
+                  <button id="delete-user-button" class="danger full-width" type="button">删除当前用户</button>
+                </div>
+                <pre id="issue-key-output" class="console">先选择用户，再执行用户操作</pre>
+              </section>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-audit" class="view">
+          <div class="content-grid split-admin">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Trace list</p>
+                  <h3>所有可审计请求</h3>
+                </div>
+                <span class="badge">管理员</span>
+              </div>
+              <div id="request-list" class="list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Trace detail</p>
+                  <h3 id="audit-detail-title">请选择一条请求</h3>
+                </div>
+              </div>
+              <div id="audit-detail" class="audit-detail">
+                <p class="empty">点击左侧请求后，这里会展示完整链路、tool use 事件与最终用量。</p>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="view-portal" class="view">
+          <div class="content-grid two-col">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">My pocket keys</p>
+                  <h3>我的 API Key</h3>
+                </div>
+              </div>
+              <div id="me-keys" class="list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">My usage ribbon</p>
+                  <h3>我的用量记录</h3>
+                </div>
+              </div>
+              <div id="me-usage" class="list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="auth-modal" class="modal-overlay is-open">
+      <div class="modal">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">欢迎回来</p>
+            <h3>进入这间软体工作室</h3>
+          </div>
+          <button id="close-auth" class="ghost">关闭</button>
+        </div>
+
+        <div class="preset-row">
+          <button class="preset-button" data-email="admin@example.com" data-password="admin123">管理员预设</button>
+          <button class="preset-button" data-email="demo@example.com" data-password="demo123">用户预设</button>
+        </div>
+
+        <form id="login-form" class="form-grid">
+          <label class="full">
+            邮箱
+            <input name="email" type="email" placeholder="admin@example.com" />
+          </label>
+          <label class="full">
+            密码
+            <input name="password" type="password" placeholder="admin123" />
+          </label>
+          <button class="primary full" type="submit">登录</button>
+        </form>
+
+        <pre id="session-output" class="console">当前还没有会话</pre>
+      </div>
+    </div>
+
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>

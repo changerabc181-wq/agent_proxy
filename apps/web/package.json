@@ -1,0 +1,11 @@
+{
+  "name": "@agent-proxy/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node -e \"console.log('Static web assets do not require a build step in this prototype')\"",
+    "check": "node --check src/app.js"
+  }
+}
+
