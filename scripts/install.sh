@@ -6,7 +6,8 @@
 #   bash scripts/install.sh [选项]
 #
 # 选项:
-#   --docker          使用 Docker 方式部署（默认为本地 Node.js）
+#   --compose         使用 Docker Compose 方式部署（推荐，含 MySQL）
+#   --docker          使用单容器 Docker 方式部署
 #   --port <port>     服务端口（默认: 4000）
 #   --skip-start      仅配置，不启动服务
 #   --non-interactive 非交互模式，通过环境变量传入参数
@@ -32,12 +33,14 @@ die()     { error "$*"; exit 1; }
 
 # ---------- 解析参数 ----------
 USE_DOCKER=false
+USE_COMPOSE=false
 APP_PORT=4000
 SKIP_START=false
 NON_INTERACTIVE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --compose)        USE_COMPOSE=true; USE_DOCKER=true; shift ;;
     --docker)         USE_DOCKER=true; shift ;;
     --port)           APP_PORT="$2"; shift 2 ;;
     --skip-start)     SKIP_START=true; shift ;;
@@ -80,6 +83,19 @@ check_docker() {
     die "Docker 守护进程未运行，请先启动 Docker。"
   fi
   success "Docker $(docker --version | awk '{print $3}' | tr -d ',')"
+}
+
+# ---------- 检查 Docker Compose ----------
+check_compose() {
+  check_docker
+  if docker compose version &>/dev/null; then
+    COMPOSE_CMD="docker compose"
+  elif command -v docker-compose &>/dev/null; then
+    COMPOSE_CMD="docker-compose"
+  else
+    die "未找到 Docker Compose，请安装 Docker Compose v2 或更高版本。\n  下载: https://docs.docker.com/compose/install/"
+  fi
+  success "Docker Compose (${COMPOSE_CMD})"
 }
 
 # ---------- 安装 npm 依赖 ----------
@@ -138,6 +154,12 @@ collect_admin_info() {
   done
 }
 
+# ---------- 生成随机密码 ----------
+gen_password() {
+  # 生成 16 位随机字符串作为密码
+  node -e "const c=require('node:crypto');process.stdout.write(c.randomBytes(12).toString('base64url'))"
+}
+
 # ---------- 生成 .env 文件 ----------
 write_env_file() {
   local env_file="$ROOT_DIR/.env"
@@ -146,11 +168,21 @@ write_env_file() {
   local token_secret
   token_secret="$(node -e "const c=require('node:crypto');process.stdout.write(c.randomBytes(32).toString('hex'))")"
 
+  # 生成 MySQL 随机密码（仅首次生成时写入）
+  local mysql_password mysql_root_password
+  if [[ -f "$env_file" ]] && grep -q "MYSQL_PASSWORD=" "$env_file"; then
+    mysql_password="$(grep "^MYSQL_PASSWORD=" "$env_file" | cut -d= -f2)"
+    mysql_root_password="$(grep "^MYSQL_ROOT_PASSWORD=" "$env_file" | cut -d= -f2)"
+  else
+    mysql_password="$(gen_password)"
+    mysql_root_password="$(gen_password)"
+  fi
+
   cat > "$env_file" <<EOF
 # Agent Proxy 配置文件 - 由 install.sh 生成
 # 生成时间: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-PORT=${APP_PORT}
+APP_PORT=${APP_PORT}
 
 # JWT 签名密钥（请勿泄漏）
 TOKEN_SECRET=${token_secret}
@@ -160,6 +192,12 @@ TOKEN_SECRET=${token_secret}
 ADMIN_EMAIL=${ADMIN_EMAIL}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 ADMIN_DISPLAY_NAME=${ADMIN_DISPLAY_NAME}
+
+# MySQL 配置（Docker Compose 模式使用，3306 端口仅限内部访问）
+MYSQL_DATABASE=agent_proxy
+MYSQL_USER=agent_proxy
+MYSQL_PASSWORD=${mysql_password}
+MYSQL_ROOT_PASSWORD=${mysql_root_password}
 EOF
 
   success ".env 文件已生成: $env_file"
@@ -207,6 +245,36 @@ start_local() {
     --email "$ADMIN_EMAIL" \
     --password "$ADMIN_PASSWORD" \
     --name "$ADMIN_DISPLAY_NAME" 2>/dev/null || true
+}
+
+# ---------- Docker Compose 启动 ----------
+start_compose() {
+  info "使用 Docker Compose 启动服务..."
+
+  cd "$ROOT_DIR"
+
+  # 停止并清理旧容器（保留数据卷）
+  $COMPOSE_CMD down --remove-orphans 2>/dev/null || true
+
+  info "构建并启动容器..."
+  $COMPOSE_CMD up -d --build
+
+  # 等待 app 健康
+  local max_wait=60
+  local waited=0
+  while [[ $waited -lt $max_wait ]]; do
+    if curl -sf "http://localhost:${APP_PORT}/health" &>/dev/null; then
+      break
+    fi
+    sleep 2
+    ((waited += 2))
+  done
+
+  if ! curl -sf "http://localhost:${APP_PORT}/health" &>/dev/null; then
+    die "服务启动超时，请检查日志: ${COMPOSE_CMD} logs"
+  fi
+
+  success "服务已启动"
 }
 
 # ---------- Docker 启动 ----------
@@ -264,10 +332,16 @@ print_summary() {
   echo "  管理员邮箱:  ${ADMIN_EMAIL}"
   echo ""
   echo "  常用命令:"
-  if [[ "$USE_DOCKER" == "true" ]]; then
-    echo "    查看日志:  docker logs -f agent-proxy"
-    echo "    停止服务:  docker stop agent-proxy"
-    echo "    重启服务:  docker restart agent-proxy"
+  if [[ "$USE_COMPOSE" == "true" ]]; then
+    echo "    查看日志:  ${COMPOSE_CMD} logs -f"
+    echo "    停止服务:  ${COMPOSE_CMD} down"
+    echo "    重启服务:  ${COMPOSE_CMD} restart"
+    echo "    重建镜像:  ${COMPOSE_CMD} up -d --build"
+    echo "    查看状态:  ${COMPOSE_CMD} ps"
+  elif [[ "$USE_DOCKER" == "true" ]]; then
+    echo "    查看日志:  docker logs -f agent-proxy-app"
+    echo "    停止服务:  docker stop agent-proxy-app"
+    echo "    重启服务:  docker restart agent-proxy-app"
   else
     echo "    查看日志:  tail -f ${ROOT_DIR}/server.log"
     echo "    停止服务:  kill \$(cat ${ROOT_DIR}/server.pid)"
@@ -281,7 +355,9 @@ print_summary() {
 
 # ==================== 主流程 ====================
 
-if [[ "$USE_DOCKER" == "true" ]]; then
+if [[ "$USE_COMPOSE" == "true" ]]; then
+  check_compose
+elif [[ "$USE_DOCKER" == "true" ]]; then
   check_docker
 else
   check_node
@@ -294,13 +370,20 @@ write_env_file
 
 if [[ "$SKIP_START" == "true" ]]; then
   info "已跳过服务启动 (--skip-start)。"
-  info "手动启动命令:"
-  echo "  source .env && node apps/server/src/server.mjs"
+  if [[ "$USE_COMPOSE" == "true" ]]; then
+    info "手动启动命令:"
+    echo "  ${COMPOSE_CMD} up -d --build"
+  else
+    info "手动启动命令:"
+    echo "  source .env && node apps/server/src/server.mjs"
+  fi
   echo ""
   exit 0
 fi
 
-if [[ "$USE_DOCKER" == "true" ]]; then
+if [[ "$USE_COMPOSE" == "true" ]]; then
+  start_compose
+elif [[ "$USE_DOCKER" == "true" ]]; then
   start_docker
 else
   start_local

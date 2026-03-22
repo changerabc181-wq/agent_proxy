@@ -1,0 +1,57 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: agent-proxy-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-agent_proxy}
+      MYSQL_USER: ${MYSQL_USER:-agent_proxy}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-agent_proxy_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass}
+    volumes:
+      - agent_proxy_mysql_data:/var/lib/mysql
+      - ./docs/mysql-schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    networks:
+      - agent_proxy_internal
+    # 不对外暴露 3306，仅供内部服务访问
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root_pass}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-proxy-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-4000}:4000"
+    environment:
+      PORT: 4000
+      TOKEN_SECRET: ${TOKEN_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Admin}
+      MYSQL_HOST: db
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-agent_proxy}
+      MYSQL_USER: ${MYSQL_USER:-agent_proxy}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-agent_proxy_pass}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - agent_proxy_internal
+
+networks:
+  agent_proxy_internal:
+    name: agent_proxy_internal
+    driver: bridge
+    internal: false  # app 需要访问外部上游 API
+
+volumes:
+  agent_proxy_mysql_data:
+    name: agent_proxy_mysql_data
