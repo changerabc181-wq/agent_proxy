@@ -33,16 +33,16 @@ export function cardMetric(label, value, detail = "", tone = "") {
 
 export function requestSummaryMarkup(item) {
   return `
-    <button class="record-button ${item.isSelected ? "selected" : ""}" data-request-id="${item.id}">
+    <button class="item-card ${item.isSelected ? "selected" : ""}" data-request-id="${item.id}">
       <div class="record-head">
-        <span class="tag">${item.protocol}</span>
-        <span class="subtle">${item.status ?? ""}</span>
+        <strong>${item.requestedModel}</strong>
+        <span class="tag good">${item.status ?? ""}</span>
       </div>
-      <strong>${item.requestedModel}</strong>
-      <p class="muted">映射到 ${item.mappedModel}</p>
+      <p class="muted">Mapped to ${item.mappedModel}</p>
       <div class="record-meta">
-        <span>${formatDate(item.createdAt)}</span>
-        <span>${item.latencyMs ?? 0} ms</span>
+        <span class="tag">${item.protocol}</span>
+        <span class="tag">${item.latencyMs ?? 0} ms</span>
+        <span class="tag">${formatDate(item.createdAt).split(",")[1]}</span>
       </div>
     </button>
   `;

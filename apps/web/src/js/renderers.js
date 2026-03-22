@@ -5,11 +5,11 @@ import { cardMetric, formatDate, renderList, requestSummaryMarkup, showJson } fr
 
 export function setPageTitle(viewName) {
   const titles = {
-    dashboard: "软体总览",
-    upstreams: "上游工坊",
-    users: "成员与配额",
-    audit: "审计丝带",
-    portal: "我的口袋"
+    dashboard: "系统总览",
+    upstreams: "路由管理",
+    users: "成员配额",
+    audit: "审计日志",
+    portal: "个人工作台"
   };
   const title = titles[viewName] ?? "Agent Proxy";
   dom.pageTitle.textContent = title;
@@ -97,10 +97,12 @@ export function fillQuotaForm(user) {
   dom.quotaRemainingInput.value = user.quota.remainingTokens ?? "";
   showJson(dom.quotaFormOutput, user.quota);
   dom.userDetailCard.innerHTML = `
-    <div class="summary-row"><span>邮箱</span><strong>${user.email}</strong></div>
-    <div class="summary-row"><span>角色</span><strong>${user.role}</strong></div>
-    <div class="summary-row"><span>状态</span><strong>${user.isActive ? "已启用" : "已禁用"}</strong></div>
-    <div class="summary-row"><span>额度</span><strong>${user.quota.mode === "unlimited" ? "无限额度" : `剩余 ${user.quota.remainingTokens}`}</strong></div>
+    <div class="detail-card">
+      <div class="summary-row"><span>Email</span><strong>${user.email}</strong></div>
+      <div class="summary-row"><span>Role</span><strong>${user.role}</strong></div>
+      <div class="summary-row"><span>Status</span><strong>${user.isActive ? "Enabled" : "Disabled"}</strong></div>
+      <div class="summary-row"><span>Quota</span><strong>${user.quota.mode === "unlimited" ? "Unlimited" : `Left: ${user.quota.remainingTokens}`}</strong></div>
+    </div>
   `;
   dom.issueKeyOutput.textContent = `当前已选择用户：${user.displayName}`;
   dom.toggleUserButton.textContent = user.isActive ? "禁用当前用户" : "启用当前用户";
@@ -212,14 +214,16 @@ export async function refreshSelectedUserKeys(refreshAdmin, refreshUser) {
   const keys = await api(`/admin/users/${appState.selectedUserId}/api-keys`);
   appState.userApiKeys = keys;
   renderList(dom.userApiKeyList, keys, (item) => `
-    <div class="record-head">
-      <strong>${item.name}</strong>
-      <span class="tag">${item.protocol}</span>
-    </div>
-    <p class="muted">${item.prefix}******</p>
-    <div class="record-meta">
-      <span>${item.isActive ? "启用中" : "已撤销"}</span>
-      <button class="ghost compact-button" data-revoke-key-id="${item.id}">撤销</button>
+    <div class="item-card compact">
+      <div class="record-head">
+        <strong>${item.name}</strong>
+        <span class="tag">${item.protocol}</span>
+      </div>
+      <p class="muted">${item.prefix}******</p>
+      <div class="record-meta">
+        <span class="tag ${item.isActive ? "good" : "warn"}">${item.isActive ? "Active" : "Revoked"}</span>
+        <button class="ghost compact-button" data-revoke-key-id="${item.id}" style="padding: 4px 10px; height: 26px; font-size: 0.7rem;">Revoke</button>
+      </div>
     </div>
   `, "当前用户还没有 API Key。");
 
@@ -280,45 +284,47 @@ export async function refreshAdmin(refreshUser) {
   ].join("");
 
   renderList(dom.providerHealth, dashboard.providerHealth, (item) => `
-    <div class="record-head">
-      <strong>${item.provider}</strong>
-      <span class="tag ${item.status === "healthy" ? "good" : "warn"}">${item.status}</span>
+    <div class="item-card">
+      <div class="record-head">
+        <strong>${item.provider}</strong>
+        <span class="tag ${item.status === "healthy" ? "good" : "warn"}">${item.status}</span>
+      </div>
+      <div class="record-meta">
+        <span class="tag">Avg Latency</span>
+        <span class="tag">${item.avgLatencyMs} ms</span>
+      </div>
     </div>
-    <p class="muted">平均延迟 ${item.avgLatencyMs} ms</p>
   `, "暂无上游健康数据。");
 
   renderList(dom.recentRequests, dashboard.recentRequests, requestSummaryMarkup, "暂无请求。");
   bindRequestButtons("admin");
 
   renderList(dom.upstreams, filteredUpstreams(), (item) => `
-    <button class="record-button ${item.id === appState.selectedUpstreamId ? "selected" : ""}" data-upstream-id="${item.id}">
+    <button class="item-card ${item.id === appState.selectedUpstreamId ? "selected" : ""}" data-upstream-id="${item.id}">
       <div class="record-head">
         <strong>${item.name}</strong>
         <span class="tag">${item.provider}</span>
       </div>
       <p>${item.baseUrl}</p>
       <div class="record-meta">
-        <span>默认模型 ${item.defaultModel}</span>
-        <span>优先级 ${item.priority}</span>
-      </div>
-      <div class="record-meta">
-        <span>${item.apiKeyMasked}</span>
-        <span>${item.isActive ? "启用中" : "已停用"}</span>
+        <span class="tag">Priority ${item.priority}</span>
+        <span class="tag">${item.defaultModel}</span>
+        <span class="tag ${item.isActive ? "good" : "warn"}">${item.isActive ? "Active" : "Disabled"}</span>
       </div>
     </button>
   `, appState.upstreamTab === "active" ? "暂无启用中的上游。" : "暂无上游配置。");
   bindUpstreamButtons();
 
   renderList(dom.users, usersData, (item) => `
-    <button class="record-button ${item.id === appState.selectedUserId ? "selected" : ""}" data-user-id="${item.id}">
+    <button class="item-card ${item.id === appState.selectedUserId ? "selected" : ""}" data-user-id="${item.id}">
       <div class="record-head">
         <strong>${item.displayName}</strong>
         <span class="tag">${item.role}</span>
       </div>
       <p>${item.email}</p>
       <div class="record-meta">
-        <span>${item.isActive ? "已启用" : "已禁用"}</span>
-        <span>${item.quota.mode === "unlimited" ? "无限额度" : `剩余 ${item.quota.remainingTokens}`}</span>
+        <span class="tag ${item.isActive ? "good" : "warn"}">${item.isActive ? "Active" : "Disabled"}</span>
+        <span class="tag">${item.quota.mode === "unlimited" ? "Unlimited" : `Left: ${item.quota.remainingTokens}`}</span>
       </div>
     </button>
   `, "暂无用户。");
@@ -347,27 +353,29 @@ export async function refreshUser() {
   const usage = await api("/me/usage");
 
   renderList(dom.meKeys, keys, (item) => `
-    <div class="record-head">
-      <strong>${item.name}</strong>
-      <span class="tag">${item.protocol}</span>
-    </div>
-    <p class="muted">${item.prefix}******</p>
-    <div class="record-meta">
-      <span>${formatDate(item.createdAt)}</span>
-      <span>${item.isActive ? "启用中" : "已撤销"}</span>
+    <div class="item-card">
+      <div class="record-head">
+        <strong>${item.name}</strong>
+        <span class="tag">${item.protocol}</span>
+      </div>
+      <p class="muted">${item.prefix}******</p>
+      <div class="record-meta">
+        <span class="tag">${formatDate(item.createdAt)}</span>
+        <span class="tag ${item.isActive ? "good" : "warn"}">${item.isActive ? "Active" : "Revoked"}</span>
+      </div>
     </div>
   `, "暂无 API Key。");
 
   renderList(dom.meUsage, usage.entries, (item) => `
-    <button class="record-button" data-request-id="${item.requestId}">
+    <button class="item-card" data-request-id="${item.requestId}">
       <div class="record-head">
         <strong>${item.provider}</strong>
         <span class="tag">${item.inputTokens + item.outputTokens} tok</span>
       </div>
-      <p class="muted">预估 $${item.estimatedCostUsd.toFixed(4)}</p>
+      <p class="muted">Est. $${item.estimatedCostUsd.toFixed(4)}</p>
       <div class="record-meta">
-        <span>${formatDate(item.createdAt)}</span>
-        <span>输出 ${item.outputTokens}</span>
+        <span class="tag">${formatDate(item.createdAt).split(",")[1]}</span>
+        <span class="tag">Out: ${item.outputTokens}</span>
       </div>
     </button>
   `, "暂无用量记录。");

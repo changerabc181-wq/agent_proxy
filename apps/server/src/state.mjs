@@ -1,8 +1,5 @@
 import { createId, estimateCost, estimateTokensFromText, generateApiKey, maskSecret, nowIso, sha256 } from "./utils.mjs";
 
-const adminPassword = "admin123";
-const userPassword = "demo123";
-
 function newAuditEvent(requestId, type, payload) {
   return {
     id: createId("evt"),
@@ -37,144 +34,44 @@ function newProxyRequest({
   };
 }
 
-const initialUpstreamId = createId("up");
-const secondUpstreamId = createId("up");
-const adminId = createId("usr");
-const demoUserId = createId("usr");
-
-const anthropicKeyPlain = generateApiKey("anthropic");
-const openaiKeyPlain = generateApiKey("openai");
-
 export const state = {
   config: {
-    tokenSecret: "agent-proxy-dev-secret"
+    tokenSecret: process.env.TOKEN_SECRET ?? "agent-proxy-dev-secret"
   },
-  users: [
-    {
-      id: adminId,
-      email: "admin@example.com",
-      displayName: "Admin Operator",
-      role: "admin",
-      passwordHash: sha256(adminPassword),
-      isActive: true,
-      createdAt: nowIso()
-    },
-    {
-      id: demoUserId,
-      email: "demo@example.com",
-      displayName: "Demo User",
-      role: "user",
-      passwordHash: sha256(userPassword),
-      isActive: true,
-      createdAt: nowIso()
-    }
-  ],
-  upstreams: [
-    {
-      id: initialUpstreamId,
-      name: "Primary OpenRouter",
-      provider: "openrouter",
-      baseUrl: "https://openrouter.ai/api/v1",
-      apiKeyMasked: "or-sk...demo",
-      defaultModel: "glm-5",
-      isActive: true,
-      priority: 10,
-      createdAt: nowIso()
-    },
-    {
-      id: secondUpstreamId,
-      name: "Fallback MiniMax",
-      provider: "minimax",
-      baseUrl: "https://api.minimax.chat/v1",
-      apiKeyMasked: "mm-sk...demo",
-      defaultModel: "abab7-chat",
-      isActive: true,
-      priority: 20,
-      createdAt: nowIso()
-    }
-  ],
-  mappings: [
-    {
-      id: createId("map"),
-      upstreamAccountId: initialUpstreamId,
-      protocol: "anthropic",
-      requestedModel: "claude-opus-4-1",
-      targetModel: "glm-5",
-      isFallback: false
-    },
-    {
-      id: createId("map"),
-      upstreamAccountId: initialUpstreamId,
-      protocol: "anthropic",
-      requestedModel: "*",
-      targetModel: "glm-5",
-      isFallback: true
-    },
-    {
-      id: createId("map"),
-      upstreamAccountId: secondUpstreamId,
-      protocol: "openai",
-      requestedModel: "*",
-      targetModel: "abab7-chat",
-      isFallback: true
-    }
-  ],
-  apiKeys: [
-    {
-      id: createId("key"),
-      userId: demoUserId,
-      protocol: "anthropic",
-      name: "Claude Code",
-      prefix: anthropicKeyPlain.slice(0, 12),
-      hashedSecret: sha256(anthropicKeyPlain),
-      createdAt: nowIso(),
-      isActive: true,
-      lastUsedAt: undefined
-    },
-    {
-      id: createId("key"),
-      userId: demoUserId,
-      protocol: "openai",
-      name: "OpenCode",
-      prefix: openaiKeyPlain.slice(0, 12),
-      hashedSecret: sha256(openaiKeyPlain),
-      createdAt: nowIso(),
-      isActive: true,
-      lastUsedAt: undefined
-    }
-  ],
-  quotaPolicies: [
-    {
-      userId: adminId,
-      mode: "unlimited",
-      monthlyTokenLimit: null,
-      remainingTokens: null,
-      updatedAt: nowIso()
-    },
-    {
-      userId: demoUserId,
-      mode: "limited",
-      monthlyTokenLimit: 120000,
-      remainingTokens: 87340,
-      updatedAt: nowIso()
-    }
-  ],
+  users: [],
+  upstreams: [],
+  mappings: [],
+  apiKeys: [],
+  quotaPolicies: [],
   requests: [],
   events: [],
-  usageLedger: [],
-  bootstrapSecrets: {
-    admin: {
-      email: "admin@example.com",
-      password: adminPassword
-    },
-    demo: {
-      email: "demo@example.com",
-      password: userPassword,
-      anthropicKey: anthropicKeyPlain,
-      openaiKey: openaiKeyPlain
-    }
-  }
+  usageLedger: []
 };
+
+export function hasAdmin() {
+  return state.users.some((user) => user.role === "admin");
+}
+
+export function initializeAdmin(email, password, displayName) {
+  const user = {
+    id: createId("usr"),
+    email,
+    displayName: displayName || "Admin",
+    role: "admin",
+    passwordHash: sha256(password),
+    isActive: true,
+    createdAt: nowIso()
+  };
+  state.users.push(user);
+  state.quotaPolicies.push({
+    userId: user.id,
+    mode: "unlimited",
+    monthlyTokenLimit: null,
+    remainingTokens: null,
+    updatedAt: nowIso()
+  });
+  return user;
+}
 
 export function findUserByCredentials(email, password) {
   const hash = sha256(password);

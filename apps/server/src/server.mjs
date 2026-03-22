@@ -12,6 +12,8 @@ import {
   getDashboardSnapshot,
   getQuota,
   getUserById,
+  hasAdmin,
+  initializeAdmin,
   issueUserApiKey,
   listUserApiKeys,
   persistProxyResult,
@@ -20,8 +22,7 @@ import {
   state,
   updateUpstream,
   updateUpstreamStatus,
-  updateQuota
-  ,
+  updateQuota,
   updateUserStatus
 } from "./state.mjs";
 import { createId, json, nowIso, parsePath, readJson, signToken, verifyToken } from "./utils.mjs";
@@ -349,6 +350,36 @@ const server = http.createServer(async (req, res) => {
   try {
     const { pathname } = parsePath(req.url);
 
+    if (req.method === "POST" && pathname === "/setup/admin") {
+      if (hasAdmin()) {
+        json(res, 409, { error: "Admin already exists. Use /auth/login to sign in." });
+        return;
+      }
+      const body = await readJson(req);
+      if (!body.email || !body.password) {
+        json(res, 400, { error: "email and password are required" });
+        return;
+      }
+      const user = initializeAdmin(body.email, body.password, body.displayName);
+      const token = signToken({ userId: user.id, role: user.role }, state.config.tokenSecret);
+      json(res, 201, {
+        message: "Admin account created successfully",
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          role: user.role
+        }
+      });
+      return;
+    }
+
+    if (req.method === "GET" && pathname === "/setup/status") {
+      json(res, 200, { needsSetup: !hasAdmin() });
+      return;
+    }
+
     if (req.method === "POST" && pathname === "/auth/login") {
       const body = await readJson(req);
       const user = findUserByCredentials(body.email, body.password);
@@ -627,6 +658,21 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, () => {
   console.log(`Agent proxy server listening on http://localhost:${port}`);
-  console.log("Bootstrap credentials:");
-  console.log(JSON.stringify(state.bootstrapSecrets, null, 2));
+
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminDisplayName = process.env.ADMIN_DISPLAY_NAME;
+
+  if (adminEmail && adminPassword) {
+    if (!hasAdmin()) {
+      const user = initializeAdmin(adminEmail, adminPassword, adminDisplayName);
+      console.log(`Admin account created: ${user.email} (${user.displayName})`);
+    } else {
+      console.log("Admin already exists, skipping ADMIN_EMAIL/ADMIN_PASSWORD seed.");
+    }
+  } else if (!hasAdmin()) {
+    console.log("No admin account configured.");
+    console.log(`Run the setup tool: node scripts/create-admin.mjs --url http://localhost:${port}`);
+    console.log("Or set ADMIN_EMAIL and ADMIN_PASSWORD environment variables before starting the server.");
+  }
 });

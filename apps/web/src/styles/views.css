@@ -1,72 +1,30 @@
-.breadcrumb {
-  display: flex;
-  gap: 8px;
-  color: var(--muted);
-}
+.hero-copy h1 { font-size: clamp(1.8rem, 2.5vw, 2.4rem); line-height: 1.25; margin: 12px 0; color: #111827; }
+.hero-copy p { font-size: 1rem; color: var(--ink-muted); line-height: 1.6; margin-bottom: 24px; max-width: 90%; }
+.hero-actions { display: flex; align-items: center; gap: 12px; }
 
-.hero-copy {
-  display: grid;
-  gap: 12px;
+/* The Pastel Metric Cards */
+.metric-card {
+  padding: 20px; border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; gap: 12px;
+  border: 1px solid var(--line-light);
 }
+.metric-card p { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; }
+.metric-card strong { font-size: 2rem; line-height: 1; }
 
-.hero-copy h3 {
-  font-size: clamp(1.8rem, 2.2vw, 2.6rem);
-  line-height: 1;
-}
+.metric-card.pastel-blue { background: var(--pastel-blue); }
+.metric-card.pastel-blue p, .metric-card.pastel-blue strong { color: var(--pastel-blue-text); }
 
-.quick-metrics {
-  align-content: start;
-}
+.metric-card.pastel-yellow { background: var(--pastel-yellow); }
+.metric-card.pastel-yellow p, .metric-card.pastel-yellow strong { color: var(--pastel-yellow-text); }
 
-.compact-hero {
-  padding: 18px;
-}
+.metric-card.pastel-green { background: var(--pastel-green); }
+.metric-card.pastel-green p, .metric-card.pastel-green strong { color: var(--pastel-green-text); }
 
-.tab-strip {
-  flex-wrap: wrap;
-}
+.metric-card.pastel-gray { background: var(--pastel-gray); }
+.metric-card.pastel-gray p, .metric-card.pastel-gray strong { color: var(--pastel-gray-text); }
 
-.tab-chip.active {
-  background: linear-gradient(180deg, #ffd8b4, #f2b894);
-}
-
-.form-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.form-grid label {
-  display: grid;
-  gap: 8px;
-  color: #6f5761;
-  font-weight: 700;
-}
-
-.form-grid .full {
-  grid-column: 1 / -1;
-}
-
-.compact-list .list-item + .list-item {
-  margin-top: 10px;
-}
-
-.topbar-copy,
-.profile-copy {
-  display: grid;
-  gap: 4px;
-}
-
-.status-label {
-  display: block;
-  font-size: 0.74rem;
-  color: var(--muted);
-}
-
-.inline-alert {
-  color: #7a4d59;
-}
-
-@media (max-width: 720px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-}
+/* Compact Nav details */
+.tab-strip { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--line-light); padding-bottom: 16px; }
+.tab-chip { padding: 8px 16px; border-radius: var(--radius-pill); font-size: 0.85rem; font-weight: 600; color: var(--ink-muted); }
+.tab-chip:hover { background: var(--bg-card-soft); color: var(--ink-main); }
+.tab-chip.active { background: var(--accent-black); color: white; }
