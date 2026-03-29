@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NETWORK_NAME="${NETWORK_NAME:-agent-proxy-net}"
-MYSQL_CONTAINER="${MYSQL_CONTAINER:-agent-proxy-mysql}"
-APP_CONTAINER="${APP_CONTAINER:-agent-proxy-app}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-docker rm -f "${APP_CONTAINER}" >/dev/null 2>&1 || true
-docker rm -f "${MYSQL_CONTAINER}" >/dev/null 2>&1 || true
-docker network rm "${NETWORK_NAME}" >/dev/null 2>&1 || true
+resolve_compose_cmd() {
+  if docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker compose)
+    return
+  fi
 
-echo "Stopped ${APP_CONTAINER} and ${MYSQL_CONTAINER}"
+  if command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker-compose)
+    return
+  fi
 
+  echo "Docker Compose is required but was not found." >&2
+  exit 1
+}
+
+resolve_compose_cmd
+cd "$ROOT_DIR"
+
+"${COMPOSE_CMD[@]}" down --remove-orphans
+echo "Stopped compose services. MySQL volume was preserved."

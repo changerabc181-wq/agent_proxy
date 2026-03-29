@@ -52,30 +52,57 @@ export function hasAdmin() {
   return state.users.some((user) => user.role === "admin");
 }
 
-export function initializeAdmin(email, password, displayName) {
+function buildQuotaPolicy(userId, role) {
+  if (role === "admin") {
+    return {
+      userId,
+      mode: "unlimited",
+      monthlyTokenLimit: null,
+      remainingTokens: null,
+      updatedAt: nowIso()
+    };
+  }
+
+  return {
+    userId,
+    mode: "limited",
+    monthlyTokenLimit: 100000,
+    remainingTokens: 100000,
+    updatedAt: nowIso()
+  };
+}
+
+function storeUser({ email, password, displayName, role }) {
   const user = {
     id: createId("usr"),
     email,
-    displayName: displayName || "Admin",
-    role: "admin",
+    displayName: displayName || (role === "admin" ? "Admin" : email),
+    role,
     passwordHash: sha256(password),
     isActive: true,
     createdAt: nowIso()
   };
   state.users.push(user);
-  state.quotaPolicies.push({
-    userId: user.id,
-    mode: "unlimited",
-    monthlyTokenLimit: null,
-    remainingTokens: null,
-    updatedAt: nowIso()
-  });
+  state.quotaPolicies.push(buildQuotaPolicy(user.id, role));
   return user;
+}
+
+export function initializeAdmin(email, password, displayName) {
+  return storeUser({
+    email,
+    password,
+    displayName: displayName || "Admin",
+    role: "admin"
+  });
 }
 
 export function findUserByCredentials(email, password) {
   const hash = sha256(password);
   return state.users.find((user) => user.email === email && user.passwordHash === hash && user.isActive);
+}
+
+export function findUserByEmail(email) {
+  return state.users.find((user) => user.email === email);
 }
 
 export function getUserById(userId) {
@@ -106,9 +133,12 @@ export function chargeQuota(userId, totalTokens) {
   policy.updatedAt = nowIso();
 }
 
-export function issueUserApiKey(userId, protocol, name) {
+export function issueUserApiKey(userId, protocol, name, upstreamAccountId = null) {
   const user = state.users.find((item) => item.id === userId && item.isActive);
   if (!user) {
+    return null;
+  }
+  if (upstreamAccountId && !state.upstreams.some((item) => item.id === upstreamAccountId)) {
     return null;
   }
   const plain = generateApiKey(protocol);
@@ -117,6 +147,8 @@ export function issueUserApiKey(userId, protocol, name) {
     userId,
     protocol,
     name,
+    upstreamAccountId: upstreamAccountId || null,
+    plainTextKey: plain,
     prefix: plain.slice(0, 12),
     hashedSecret: sha256(plain),
     createdAt: nowIso(),
@@ -143,13 +175,37 @@ export function revokeApiKey(userId, keyId) {
   return key;
 }
 
+export function deleteApiKey(userId, keyId) {
+  const index = state.apiKeys.findIndex((item) => item.id === keyId && item.userId === userId);
+  if (index === -1) {
+    return null;
+  }
+  const [removed] = state.apiKeys.splice(index, 1);
+  return removed;
+}
+
+export function updateApiKeyBinding(userId, keyId, upstreamAccountId = null) {
+  const key = state.apiKeys.find((item) => item.id === keyId && item.userId === userId);
+  if (!key) {
+    return null;
+  }
+  if (upstreamAccountId && !state.upstreams.some((item) => item.id === upstreamAccountId)) {
+    return null;
+  }
+  key.upstreamAccountId = upstreamAccountId || null;
+  return key;
+}
+
 export function findApiKey(secret, protocol) {
   const hashedSecret = sha256(secret);
   return state.apiKeys.find((key) => key.hashedSecret === hashedSecret && key.protocol === protocol && key.isActive);
 }
 
-export function selectUpstream(protocol, model) {
-  const activeUpstreams = [...state.upstreams].filter((upstream) => upstream.isActive).sort((a, b) => a.priority - b.priority);
+export function selectUpstream(protocol, model, preferredUpstreamId = null) {
+  const activeUpstreams = [...state.upstreams]
+    .filter((upstream) => upstream.isActive)
+    .filter((upstream) => !preferredUpstreamId || upstream.id === preferredUpstreamId)
+    .sort((a, b) => a.priority - b.priority);
   for (const upstream of activeUpstreams) {
     const rules = state.mappings.filter((mapping) => mapping.upstreamAccountId === upstream.id && mapping.protocol === protocol);
     const exact = rules.find((rule) => !rule.isFallback && rule.requestedModel === model);
@@ -252,7 +308,7 @@ export function getDashboardSnapshot() {
       monthlyTokens: totalTokens
     },
     providerHealth: state.upstreams.map((upstream) => ({
-      provider: upstream.provider,
+      name: upstream.name,
       status: upstream.isActive ? "healthy" : "offline",
       avgLatencyMs: upstream.priority * 12 + 40
     })),
@@ -266,25 +322,69 @@ export function buildAuditTimeline(requestId) {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
+export function getRoutingStateSnapshot() {
+  return {
+    upstreams: state.upstreams.map((item) => ({ ...item })),
+    mappings: state.mappings.map((item) => ({ ...item }))
+  };
+}
+
+export function replaceRoutingState(nextState) {
+  state.upstreams = Array.isArray(nextState?.upstreams)
+    ? nextState.upstreams.map((item) => ({ ...item }))
+    : [];
+  state.mappings = Array.isArray(nextState?.mappings)
+    ? nextState.mappings.map((item) => ({ ...item }))
+    : [];
+}
+
+export function getAccountStateSnapshot() {
+  return {
+    users: state.users.map((item) => ({ ...item })),
+    quotaPolicies: state.quotaPolicies.map((item) => ({ ...item })),
+    apiKeys: state.apiKeys.map((item) => ({ ...item }))
+  };
+}
+
+export function replaceAccountState(nextState) {
+  state.users = Array.isArray(nextState?.users)
+    ? nextState.users.map((item) => ({ ...item }))
+    : [];
+  state.quotaPolicies = Array.isArray(nextState?.quotaPolicies)
+    ? nextState.quotaPolicies.map((item) => ({ ...item }))
+    : [];
+  state.apiKeys = Array.isArray(nextState?.apiKeys)
+    ? nextState.apiKeys.map((item) => ({ ...item }))
+    : [];
+}
+
+export function getActivityStateSnapshot() {
+  return {
+    requests: state.requests.map((item) => ({ ...item })),
+    events: state.events.map((item) => ({ ...item })),
+    usageLedger: state.usageLedger.map((item) => ({ ...item }))
+  };
+}
+
+export function replaceActivityState(nextState) {
+  state.requests = Array.isArray(nextState?.requests)
+    ? nextState.requests.map((item) => ({ ...item }))
+    : [];
+  state.events = Array.isArray(nextState?.events)
+    ? nextState.events.map((item) => ({ ...item }))
+    : [];
+  state.usageLedger = Array.isArray(nextState?.usageLedger)
+    ? nextState.usageLedger.map((item) => ({ ...item }))
+    : [];
+}
+
 export function createUser({ email, displayName, password, role = "user" }) {
-  const user = {
-    id: createId("usr"),
+  return storeUser({
     email,
     displayName,
-    role,
-    passwordHash: sha256(password),
-    isActive: true,
-    createdAt: nowIso()
-  };
-  state.users.push(user);
-  state.quotaPolicies.push({
-    userId: user.id,
-    mode: "limited",
-    monthlyTokenLimit: 100000,
-    remainingTokens: 100000,
-    updatedAt: nowIso()
+    password,
+    role: role === "admin" ? "admin" : "user"
   });
-  return user;
 }
 
 export function deleteUser(userId) {
@@ -329,7 +429,7 @@ export function createUpstream(input) {
   const record = {
     id: createId("up"),
     name: input.name,
-    provider: input.provider,
+    provider: input.provider ?? "generic-openai",
     baseUrl: input.baseUrl,
     apiKeyMasked: maskSecret(input.apiKey),
     defaultModel: input.defaultModel,

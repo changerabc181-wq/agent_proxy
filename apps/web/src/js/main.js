@@ -1,15 +1,22 @@
 import { api } from "./api.js";
 import { dom } from "./dom.js";
+import { initI18n, onLanguageChange, setLanguage, translateTree } from "./i18n.js";
 import { activeView, appState, selectedUpstream, selectedUser } from "./state.js";
 import {
   activateView,
   closeModal,
   fillQuotaForm,
   openModal,
+  populateUpstreamEditor,
   refreshAdmin,
   refreshHealth,
   refreshUser,
+  renderIssuedKeyResult,
   resetUpstreamForm,
+  stripUpstreamProvider,
+  getStoredSession,
+  syncLanguageButtons,
+  syncIssueKeyUpstreamOptions,
   setPageTitle,
   setSession,
   setUpstreamAlert,
@@ -17,6 +24,23 @@ import {
   showError
 } from "./renderers.js";
 import { showJson } from "./utils.js";
+
+async function copyText(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "absolute";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textarea);
+}
 
 async function login(email, password) {
   const session = await api("/auth/login", {
@@ -28,11 +52,32 @@ async function login(email, password) {
   await Promise.all([refreshAdmin(refreshUser), refreshUser()]);
 }
 
+async function restoreSession() {
+  const storedSession = getStoredSession();
+  setSession(storedSession);
+
+  try {
+    await Promise.all([refreshAdmin(refreshUser), refreshUser()]);
+  } catch (error) {
+    const isAuthError = error instanceof Error && ["Unauthorized", "Forbidden"].includes(error.message);
+    if (!storedSession || !isAuthError) {
+      throw error;
+    }
+
+    setSession(null);
+    await Promise.all([refreshAdmin(refreshUser), refreshUser()]);
+    throw new Error("登录已失效，请重新登录");
+  }
+}
+
 function bindNavigation() {
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.classList.contains("is-disabled")) {
         return;
+      }
+      if (button.dataset.view === "create-upstream") {
+        resetUpstreamForm();
       }
       activateView(button.dataset.view);
     });
@@ -40,6 +85,9 @@ function bindNavigation() {
 
   document.querySelectorAll("[data-view-target]").forEach((button) => {
     button.addEventListener("click", () => {
+      if (button.dataset.viewTarget === "create-upstream") {
+        resetUpstreamForm();
+      }
       activateView(button.dataset.viewTarget);
     });
   });
@@ -67,12 +115,16 @@ function bindNavigation() {
 }
 
 function bindToolbar() {
+  dom.langZhButton.addEventListener("click", () => setLanguage("zh"));
+  dom.langEnButton.addEventListener("click", () => setLanguage("en"));
+
   dom.dashboardRefreshButton.addEventListener("click", async () => {
     await Promise.all([refreshHealth(), refreshAdmin(refreshUser), refreshUser()]);
   });
 
   dom.heroUpstreamFocus.addEventListener("click", () => {
-    activateView("upstreams");
+    resetUpstreamForm();
+    activateView("create-upstream");
     dom.upstreamForm.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
@@ -88,18 +140,70 @@ function bindToolbar() {
     await Promise.all([refreshAdmin(refreshUser), refreshUser()]);
   });
 
-  document.querySelectorAll(".preset-button").forEach((button) => {
-    button.addEventListener("click", () => {
-      openModal({
-        email: button.dataset.email,
-        password: button.dataset.password
-      });
-    });
-  });
-
   dom.authModal.addEventListener("click", (event) => {
     if (event.target === dom.authModal) {
       closeModal();
+    }
+  });
+
+  dom.editUpstreamButton.addEventListener("click", () => {
+    const upstream = selectedUpstream();
+    if (!upstream) {
+      dom.upstreamDetailOutput.textContent = "请先从左侧选择一个上游。";
+      return;
+    }
+    populateUpstreamEditor(upstream);
+    activateView("create-upstream");
+    dom.upstreamForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  dom.issueKeyOutput.addEventListener("click", async (event) => {
+    const copyKeyButton = event.target.closest("[data-copy-issued-key]");
+    const copyBaseUrlButton = event.target.closest("[data-copy-base-url]");
+    const copyEndpointButton = event.target.closest("[data-copy-endpoint]");
+    const copySnippetButton = event.target.closest("[data-copy-snippet-target]");
+    if (!copyKeyButton && !copyBaseUrlButton && !copyEndpointButton && !copySnippetButton) {
+      return;
+    }
+
+    try {
+      if (copyKeyButton) {
+        await copyText(copyKeyButton.dataset.copyIssuedKey);
+        const note = dom.issueKeyOutput.querySelector(".muted");
+        if (note) {
+          note.textContent = "Plaintext key copied.";
+        }
+        return;
+      }
+
+      if (copyBaseUrlButton) {
+        await copyText(copyBaseUrlButton.dataset.copyBaseUrl);
+        const note = dom.issueKeyOutput.querySelector(".muted");
+        if (note) {
+          note.textContent = "Base URL copied.";
+        }
+        return;
+      }
+
+      if (copySnippetButton) {
+        const target = dom.issueKeyOutput.querySelector(`#${copySnippetButton.dataset.copySnippetTarget}`);
+        if (target) {
+          await copyText(target.textContent);
+          const note = dom.issueKeyOutput.querySelector(".muted");
+          if (note) {
+            note.textContent = `${copySnippetButton.dataset.copyLabel} snippet copied.`;
+          }
+        }
+        return;
+      }
+
+      await copyText(copyEndpointButton.dataset.copyEndpoint);
+      const note = dom.issueKeyOutput.querySelector(".muted");
+      if (note) {
+        note.textContent = "Endpoint copied.";
+      }
+    } catch (error) {
+      dom.issueKeyOutput.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 }
@@ -144,7 +248,7 @@ function bindForms() {
         method: isEditing ? "PATCH" : "POST",
         body: JSON.stringify(payload)
       });
-      showJson(dom.upstreamFormOutput, result);
+      showJson(dom.upstreamFormOutput, stripUpstreamProvider(result));
       setUpstreamAlert("");
       if (!isEditing) {
         resetUpstreamForm();
@@ -159,7 +263,7 @@ function bindForms() {
   dom.upstreamToggleButton.addEventListener("click", async () => {
     const upstream = selectedUpstream();
     if (!upstream) {
-      dom.upstreamFormOutput.textContent = "请先从左侧选择一个上游。";
+      dom.upstreamDetailOutput.textContent = "请先从左侧选择一个上游。";
       return;
     }
     try {
@@ -167,11 +271,11 @@ function bindForms() {
         method: "PATCH",
         body: JSON.stringify({ isActive: !upstream.isActive })
       });
-      showJson(dom.upstreamFormOutput, result);
+      showJson(dom.upstreamDetailOutput, stripUpstreamProvider(result));
       setUpstreamAlert("");
       await refreshAdmin(refreshUser);
     } catch (error) {
-      dom.upstreamFormOutput.textContent = error instanceof Error ? error.message : String(error);
+      dom.upstreamDetailOutput.textContent = error instanceof Error ? error.message : String(error);
       setUpstreamAlert(error instanceof Error ? error.message : String(error));
     }
   });
@@ -206,21 +310,24 @@ function bindForms() {
 
   dom.issueKeyForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!appState.selectedUserId) {
+    if (!dom.issueKeyUserInput.value) {
       dom.issueKeyOutput.textContent = "请先选择一个用户。";
       return;
     }
     try {
       const payload = {
+        userId: dom.issueKeyUserInput.value,
         name: dom.issueKeyNameInput.value || `${dom.issueKeyProtocolInput.value} key`,
-        protocol: dom.issueKeyProtocolInput.value
+        protocol: dom.issueKeyProtocolInput.value,
+        upstreamAccountId: dom.issueKeyUpstreamInput.value || null
       };
-      const result = await api(`/admin/users/${appState.selectedUserId}/api-keys`, {
+      const result = await api(`/admin/users/${payload.userId}/api-keys`, {
         method: "POST",
         body: JSON.stringify(payload)
       });
-      showJson(dom.issueKeyOutput, result);
+      renderIssuedKeyResult(result);
       dom.issueKeyForm.reset();
+      syncIssueKeyUpstreamOptions();
       await Promise.all([refreshAdmin(refreshUser), refreshUser()]);
     } catch (error) {
       dom.issueKeyOutput.textContent = error instanceof Error ? error.message : String(error);
@@ -230,18 +337,18 @@ function bindForms() {
   dom.deleteUserButton.addEventListener("click", async () => {
     const user = selectedUser();
     if (!user) {
-      dom.issueKeyOutput.textContent = "请先选择一个用户。";
+      dom.userActionOutput.textContent = "请先选择一个用户。";
       return;
     }
     if (user.role === "admin") {
-      dom.issueKeyOutput.textContent = "不能删除管理员账号。";
+      dom.userActionOutput.textContent = "不能删除管理员账号。";
       return;
     }
     try {
       const result = await api(`/admin/users/${user.id}`, {
         method: "DELETE"
       });
-      showJson(dom.issueKeyOutput, result);
+      showJson(dom.userActionOutput, result);
       appState.selectedUserId = null;
       dom.userActionTitle.textContent = "未选择用户";
       dom.userDetailCard.innerHTML = '<p class="empty">从左侧选择用户后，这里会显示该用户的状态、额度和密钥操作。</p>';
@@ -249,18 +356,18 @@ function bindForms() {
       dom.quotaFormOutput.textContent = "先从左侧选择一个用户";
       await Promise.all([refreshAdmin(refreshUser), refreshUser()]);
     } catch (error) {
-      dom.issueKeyOutput.textContent = error instanceof Error ? error.message : String(error);
+      dom.userActionOutput.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 
   dom.toggleUserButton.addEventListener("click", async () => {
     const user = selectedUser();
     if (!user) {
-      dom.issueKeyOutput.textContent = "请先选择一个用户。";
+      dom.userActionOutput.textContent = "请先选择一个用户。";
       return;
     }
     if (user.role === "admin") {
-      dom.issueKeyOutput.textContent = "不能修改管理员账号状态。";
+      dom.userActionOutput.textContent = "不能修改管理员账号状态。";
       return;
     }
     try {
@@ -268,21 +375,30 @@ function bindForms() {
         method: "PATCH",
         body: JSON.stringify({ isActive: !user.isActive })
       });
-      showJson(dom.issueKeyOutput, result);
+      showJson(dom.userActionOutput, result);
       await Promise.all([refreshAdmin(refreshUser), refreshUser()]);
     } catch (error) {
-      dom.issueKeyOutput.textContent = error instanceof Error ? error.message : String(error);
+      dom.userActionOutput.textContent = error instanceof Error ? error.message : String(error);
     }
   });
 }
 
 export function initApp() {
+  initI18n();
   bindNavigation();
   bindToolbar();
   bindForms();
-  setSession(null);
   setPageTitle("dashboard");
-  refreshHealth();
-  refreshAdmin(refreshUser);
-  refreshUser();
+  syncLanguageButtons();
+  refreshHealth().catch(showError);
+  restoreSession().catch(showError);
+  translateTree(document.body);
+  onLanguageChange(() => {
+    syncLanguageButtons();
+    setPageTitle(activeView());
+    translateTree(document.body);
+    refreshHealth().catch(showError);
+    refreshAdmin(refreshUser).catch(showError);
+    refreshUser().catch(showError);
+  });
 }

@@ -17,6 +17,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-agent_proxy}"
 
 # ---------- 颜色输出 ----------
 RED='\033[0;31m'
@@ -90,12 +91,50 @@ check_compose() {
   check_docker
   if docker compose version &>/dev/null; then
     COMPOSE_CMD="docker compose"
+    COMPOSE_VARIANT="v2"
   elif command -v docker-compose &>/dev/null; then
     COMPOSE_CMD="docker-compose"
+    COMPOSE_VARIANT="v1"
   else
     die "未找到 Docker Compose，请安装 Docker Compose v2 或更高版本。\n  下载: https://docs.docker.com/compose/install/"
   fi
   success "Docker Compose (${COMPOSE_CMD})"
+}
+
+remove_legacy_compose_conflict() {
+  local container_name="$1"
+  local expected_service="$2"
+
+  if ! docker ps -a --format '{{.Names}}' | grep -qx "$container_name"; then
+    return
+  fi
+
+  local project_label service_label
+  project_label="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project" }}' "$container_name" 2>/dev/null || true)"
+  service_label="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.service" }}' "$container_name" 2>/dev/null || true)"
+
+  if [[ "$project_label" == "$COMPOSE_PROJECT_NAME" && "$service_label" == "$expected_service" ]]; then
+    return
+  fi
+
+  warn "移除与 Compose 冲突的旧容器: $container_name"
+  docker rm -f "$container_name" >/dev/null
+}
+
+remove_matching_compose_containers() {
+  local pattern="$1"
+  local names
+
+  names="$(docker ps -a --format '{{.Names}}' | grep -E "$pattern" || true)"
+  if [[ -z "$names" ]]; then
+    return
+  fi
+
+  while IFS= read -r name; do
+    [[ -z "$name" ]] && continue
+    warn "移除与 Compose 冲突的旧容器: $name"
+    docker rm -f "$name" >/dev/null 2>&1 || true
+  done <<< "$names"
 }
 
 # ---------- 安装 npm 依赖 ----------
@@ -252,6 +291,16 @@ start_compose() {
   info "使用 Docker Compose 启动服务..."
 
   cd "$ROOT_DIR"
+  export COMPOSE_PROJECT_NAME
+  export TOKEN_SECRET="${TOKEN_SECRET:-agent-proxy-dev-secret}"
+
+  remove_legacy_compose_conflict "agent-proxy-mysql" "db"
+  remove_legacy_compose_conflict "agent-proxy-app" "app"
+
+  if [[ "${COMPOSE_VARIANT}" == "v1" ]]; then
+    warn "检测到 Docker Compose V1，启动前将重建服务容器以规避已知兼容性问题。"
+    remove_matching_compose_containers '(^agent-proxy-app$|_agent-proxy-app$|^agent-proxy-mysql$|_agent-proxy-mysql$)'
+  fi
 
   # 停止并清理旧容器（保留数据卷）
   $COMPOSE_CMD down --remove-orphans 2>/dev/null || true
@@ -349,6 +398,8 @@ print_summary() {
   fi
   echo ""
   echo "  创建额外管理员:"
+  echo "    bash scripts/create-admin-interactive.sh"
+  echo "  或使用参数方式:"
   echo "    node scripts/create-admin.mjs --url http://localhost:${APP_PORT}"
   echo ""
 }

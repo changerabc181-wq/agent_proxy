@@ -28,3 +28,25 @@
 .tab-chip { padding: 8px 16px; border-radius: var(--radius-pill); font-size: 0.85rem; font-weight: 600; color: var(--ink-muted); }
 .tab-chip:hover { background: var(--bg-card-soft); color: var(--ink-main); }
 .tab-chip.active { background: var(--accent-black); color: white; }
+
+.empty-state-card {
+  min-height: 180px;
+  padding: 28px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #fbfdff 0%, #f4f7fb 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.empty-state-card strong {
+  font-size: 1.15rem;
+}
+
+.empty-state-card .muted {
+  max-width: 560px;
+  line-height: 1.6;
+}

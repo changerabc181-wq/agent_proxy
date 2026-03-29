@@ -11,6 +11,9 @@ export const dom = {
   breadcrumbCurrent: must("#breadcrumb-current"),
   systemStatus: must("#system-status"),
   systemTime: must("#system-time"),
+  langSwitch: must("#lang-switch"),
+  langZhButton: must("#lang-zh"),
+  langEnButton: must("#lang-en"),
   currentUser: must("#current-user"),
   currentRole: must("#current-role"),
   profileAvatar: must(".profile-avatar"),
@@ -18,20 +21,26 @@ export const dom = {
   providerHealth: must("#provider-health"),
   recentRequests: must("#recent-requests"),
   upstreams: must("#upstreams"),
+  upstreamDetailCard: must("#upstream-detail-card"),
+  upstreamDetailTitle: must("#upstream-detail-title"),
+  upstreamDetailOutput: must("#upstream-detail-output"),
   users: must("#users"),
+  allApiKeys: must("#all-api-keys"),
   requestList: must("#request-list"),
   meKeys: must("#me-keys"),
   meUsage: must("#me-usage"),
+  keyDetailCard: must("#key-detail-card"),
+  keyDetailTitle: must("#key-detail-title"),
   auditDetail: must("#audit-detail"),
   auditDetailTitle: must("#audit-detail-title"),
   quotaPanelTitle: must("#quota-panel-title"),
   userActionTitle: must("#user-action-title"),
   userDetailCard: must("#user-detail-card"),
   userFormOutput: must("#user-form-output"),
+  userActionOutput: must("#user-action-output"),
   upstreamFormOutput: must("#upstream-form-output"),
   quotaFormOutput: must("#quota-form-output"),
   issueKeyOutput: must("#issue-key-output"),
-  userApiKeyList: must("#user-api-key-list"),
   createUserForm: must("#create-user-form"),
   upstreamForm: must("#upstream-form"),
   quotaForm: must("#quota-form"),
@@ -39,6 +48,7 @@ export const dom = {
   upstreamSubmitButton: must("#upstream-submit"),
   upstreamToggleButton: must("#upstream-toggle-button"),
   upstreamResetButton: must("#upstream-reset-button"),
+  editUpstreamButton: must("#edit-upstream-button"),
   toggleUserButton: must("#toggle-user-button"),
   deleteUserButton: must("#delete-user-button"),
   authModal: must("#auth-modal"),
@@ -59,8 +69,8 @@ export const dom = {
 };
 
 dom.upstreamPriorityInput = must('input[name="priority"]', dom.upstreamForm);
+dom.upstreamEditorTitle = must("#upstream-editor-title");
 dom.upstreamNameInput = must('input[name="name"]', dom.upstreamForm);
-dom.upstreamProviderInput = must('select[name="provider"]', dom.upstreamForm);
 dom.upstreamBaseUrlInput = must('input[name="baseUrl"]', dom.upstreamForm);
 dom.upstreamApiKeyInput = must('input[name="apiKey"]', dom.upstreamForm);
 dom.upstreamDefaultModelInput = must('input[name="defaultModel"]', dom.upstreamForm);
@@ -69,7 +79,9 @@ dom.upstreamMappingDefaultInput = must('input[name="mappingDefaultModel"]', dom.
 dom.quotaModeInput = must('select[name="mode"]', dom.quotaForm);
 dom.quotaMonthlyInput = must('input[name="monthlyTokenLimit"]', dom.quotaForm);
 dom.quotaRemainingInput = must('input[name="remainingTokens"]', dom.quotaForm);
+dom.issueKeyUserInput = must('select[name="userId"]', dom.issueKeyForm);
 dom.issueKeyNameInput = must('input[name="name"]', dom.issueKeyForm);
 dom.issueKeyProtocolInput = must('select[name="protocol"]', dom.issueKeyForm);
+dom.issueKeyUpstreamInput = must('select[name="upstreamAccountId"]', dom.issueKeyForm);
 dom.loginEmailInput = must('input[name="email"]', dom.loginForm);
 dom.loginPasswordInput = must('input[name="password"]', dom.loginForm);

@@ -57,6 +57,9 @@ export interface ApiKeyRecord {
   userId: string;
   protocol: ProtocolKind;
   name: string;
+  upstreamAccountId?: string | null;
+  upstreamName?: string | null;
+  plainTextKey?: string | null;
   prefix: string;
   hashedSecret: string;
   lastUsedAt?: string;
@@ -158,10 +161,9 @@ export interface DashboardSnapshot {
     monthlyTokens: number;
   };
   providerHealth: Array<{
-    provider: ProviderKind;
+    name: string;
     status: "healthy" | "degraded" | "offline";
     avgLatencyMs: number;
   }>;
   recentRequests: ProxyRequestRecord[];
 }
-

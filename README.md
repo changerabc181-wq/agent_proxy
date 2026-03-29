@@ -43,6 +43,9 @@ bash scripts/docker-down.sh
 
 ## Prototype Notes
 
-- Persistence is currently in memory; the MySQL schema lives in [`docs/mysql-schema.sql`](/home/admin/gameboy-workspace/agent_proxy/docs/mysql-schema.sql).
+- Upstream routes and model mappings are persisted to `data/routing-state.json`.
+- Accounts, quotas, and issued API keys are persisted to `data/account-state.json`.
+- Requests, audit events, and usage ledger entries are persisted to `data/activity-state.json`.
+- The MySQL schema lives in [`docs/mysql-schema.sql`](/home/admin/gameboy-workspace/agent_proxy/docs/mysql-schema.sql).
 - The upstream forwarding path is modeled end-to-end, but actual network calls are mocked so the prototype runs without external dependencies.
 - The UI is a static SPA served by the backend to demonstrate the intended operator and user workflows.

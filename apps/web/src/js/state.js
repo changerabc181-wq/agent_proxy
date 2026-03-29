@@ -2,10 +2,12 @@ export const appState = {
   token: "",
   user: null,
   selectedUserId: null,
+  selectedApiKeyId: null,
   selectedRequestId: null,
   selectedUpstreamId: null,
   upstreamTab: "all",
   upstreams: [],
+  allApiKeys: [],
   userApiKeys: [],
   users: []
 };
@@ -20,6 +22,10 @@ export function selectedUser() {
 
 export function selectedUpstream() {
   return appState.upstreams.find((item) => item.id === appState.selectedUpstreamId) ?? null;
+}
+
+export function selectedApiKey() {
+  return appState.allApiKeys.find((item) => item.id === appState.selectedApiKeyId) ?? null;
 }
 
 export function filteredUpstreams() {

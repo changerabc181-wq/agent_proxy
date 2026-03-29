@@ -2,64 +2,100 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NETWORK_NAME="${NETWORK_NAME:-agent-proxy-net}"
-MYSQL_CONTAINER="${MYSQL_CONTAINER:-agent-proxy-mysql}"
-APP_CONTAINER="${APP_CONTAINER:-agent-proxy-app}"
-MYSQL_IMAGE="${MYSQL_IMAGE:-mysql:8.0}"
-APP_IMAGE="${APP_IMAGE:-agent-proxy:dev}"
-MYSQL_PORT="${MYSQL_PORT:-3306}"
 APP_PORT="${APP_PORT:-4000}"
-MYSQL_DATABASE="${MYSQL_DATABASE:-agent_proxy}"
-MYSQL_USER="${MYSQL_USER:-agent_proxy}"
-MYSQL_PASSWORD="${MYSQL_PASSWORD:-agent_proxy}"
-MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-rootpass}"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-agent_proxy}"
 
-if ! docker network inspect "${NETWORK_NAME}" >/dev/null 2>&1; then
-  docker network create "${NETWORK_NAME}" >/dev/null
+resolve_compose_cmd() {
+  if docker compose version >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker compose)
+    COMPOSE_VARIANT="v2"
+    return
+  fi
+
+  if command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_CMD=(docker-compose)
+    COMPOSE_VARIANT="v1"
+    return
+  fi
+
+  echo "Docker Compose is required but was not found." >&2
+  exit 1
+}
+
+remove_legacy_conflict() {
+  local container_name="$1"
+  local expected_service="$2"
+
+  if ! docker ps -a --format '{{.Names}}' | grep -qx "$container_name"; then
+    return
+  fi
+
+  local project_label service_label
+  project_label="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.project" }}' "$container_name" 2>/dev/null || true)"
+  service_label="$(docker inspect -f '{{ index .Config.Labels "com.docker.compose.service" }}' "$container_name" 2>/dev/null || true)"
+
+  if [[ "$project_label" == "$COMPOSE_PROJECT_NAME" && "$service_label" == "$expected_service" ]]; then
+    return
+  fi
+
+  echo "Removing legacy container that conflicts with compose: $container_name"
+  docker rm -f "$container_name" >/dev/null
+}
+
+remove_matching_containers() {
+  local pattern="$1"
+  local names
+
+  names="$(docker ps -a --format '{{.Names}}' | grep -E "$pattern" || true)"
+  if [[ -z "$names" ]]; then
+    return
+  fi
+
+  while IFS= read -r name; do
+    [[ -z "$name" ]] && continue
+    echo "Removing conflicting container: $name"
+    docker rm -f "$name" >/dev/null 2>&1 || true
+  done <<< "$names"
+}
+
+resolve_compose_cmd
+cd "$ROOT_DIR"
+
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "$ROOT_DIR/.env"
+  set +a
 fi
 
-if docker ps -a --format '{{.Names}}' | grep -qx "${MYSQL_CONTAINER}"; then
-  docker rm -f "${MYSQL_CONTAINER}" >/dev/null
+export COMPOSE_PROJECT_NAME
+export TOKEN_SECRET="${TOKEN_SECRET:-agent-proxy-dev-secret}"
+
+remove_legacy_conflict "agent-proxy-mysql" "db"
+remove_legacy_conflict "agent-proxy-app" "app"
+
+if [[ "${COMPOSE_VARIANT}" == "v1" ]]; then
+  echo "Compose V1 detected. Removing service containers to avoid recreate bug..."
+  remove_matching_containers '(^agent-proxy-app$|_agent-proxy-app$|^agent-proxy-mysql$|_agent-proxy-mysql$)'
 fi
 
-if docker ps -a --format '{{.Names}}' | grep -qx "${APP_CONTAINER}"; then
-  docker rm -f "${APP_CONTAINER}" >/dev/null
-fi
+echo "Using: ${COMPOSE_CMD[*]}"
+echo "Starting services with persistent MySQL volume..."
+"${COMPOSE_CMD[@]}" up -d --build
 
-docker build -t "${APP_IMAGE}" "${ROOT_DIR}" >/dev/null
-
-docker run -d \
-  --name "${MYSQL_CONTAINER}" \
-  --network "${NETWORK_NAME}" \
-  -e MYSQL_DATABASE="${MYSQL_DATABASE}" \
-  -e MYSQL_USER="${MYSQL_USER}" \
-  -e MYSQL_PASSWORD="${MYSQL_PASSWORD}" \
-  -e MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD}" \
-  -p "${MYSQL_PORT}:3306" \
-  -v "${ROOT_DIR}/docs/mysql-schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro" \
-  "${MYSQL_IMAGE}" >/dev/null
-
-echo "Waiting for MySQL to become ready..."
-for _ in $(seq 1 40); do
-  if docker exec "${MYSQL_CONTAINER}" mysqladmin ping -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD}" --silent >/dev/null 2>&1; then
+echo "Waiting for app health endpoint..."
+for _ in $(seq 1 60); do
+  if curl -fsS "http://127.0.0.1:${APP_PORT}/health" >/dev/null 2>&1; then
     break
   fi
   sleep 2
 done
 
-docker run -d \
-  --name "${APP_CONTAINER}" \
-  --network "${NETWORK_NAME}" \
-  -e PORT=4000 \
-  -e MYSQL_HOST="${MYSQL_CONTAINER}" \
-  -e MYSQL_PORT=3306 \
-  -e MYSQL_DATABASE="${MYSQL_DATABASE}" \
-  -e MYSQL_USER="${MYSQL_USER}" \
-  -e MYSQL_PASSWORD="${MYSQL_PASSWORD}" \
-  -p "${APP_PORT}:4000" \
-  "${APP_IMAGE}" >/dev/null
+if ! curl -fsS "http://127.0.0.1:${APP_PORT}/health" >/dev/null 2>&1; then
+  echo "App health check failed. Inspect logs with: ${COMPOSE_CMD[*]} logs" >&2
+  exit 1
+fi
 
 echo "App URL: http://127.0.0.1:${APP_PORT}"
-echo "MySQL URL: mysql://${MYSQL_USER}:${MYSQL_PASSWORD}@127.0.0.1:${MYSQL_PORT}/${MYSQL_DATABASE}"
-echo "Containers:"
-docker ps --filter "name=${MYSQL_CONTAINER}" --filter "name=${APP_CONTAINER}" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+echo "MySQL data is persisted in volume: agent_proxy_mysql_data"
+"${COMPOSE_CMD[@]}" ps

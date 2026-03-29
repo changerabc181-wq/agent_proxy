@@ -31,6 +31,27 @@
 /* TOPBAR */
 .breadcrumb { font-size: 0.9rem; color: var(--ink-muted); font-weight: 500; }
 .breadcrumb span { color: var(--ink-main); font-weight: 600; }
+.topbar-actions { display: flex; align-items: center; gap: 16px; }
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--line-light);
+  border-radius: var(--radius-pill);
+  background: var(--bg-card);
+}
+.lang-chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+.lang-chip.is-active {
+  background: var(--accent-black);
+  color: white;
+}
 .profile-card { display: flex; align-items: center; gap: 12px; }
 .profile-copy { text-align: right; }
 .profile-copy strong { display: block; font-size: 0.85rem; font-weight: 600; }
@@ -50,7 +71,7 @@
 .dropdown-item.danger-text { color: #ef4444; }
 
 /* BUTTONS */
-.primary, .secondary, .ghost, .danger, .preset-button {
+.primary, .secondary, .ghost, .danger {
   padding: 0.75rem 1.25rem; border-radius: var(--radius-pill); font-size: 0.875rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
 .primary { background: var(--accent-black); color: white; border: 1px solid var(--accent-black); }
@@ -62,6 +83,7 @@
 .danger { background: #fee2e2; color: #b91c1c; }
 .danger:hover { background: #fecaca; }
 .full, .full-width { width: 100%; }
+.compact-button { padding: 6px 12px; font-size: 0.75rem; min-height: 32px; }
 
 /* EYE BROW & LABELS */
 .eyebrow-pill {
@@ -173,5 +195,49 @@
   background: var(--bg-app); border: 1px solid var(--line-light); padding: 14px; border-radius: var(--radius-md);
   font-size: 0.8rem; color: var(--ink-muted); margin-top: 12px;
   max-height: 400px; overflow-y: auto; width: 100%;
+}
+.issued-key-card { display: flex; flex-direction: column; gap: 14px; }
+.issued-key-card .record-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.issued-key-secret {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--ink-main);
+  background: var(--bg-card);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  word-break: break-all;
+}
+.issued-key-card .summary-row strong { max-width: 70%; overflow-wrap: anywhere; text-align: right; }
+.integration-guide { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.integration-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line-light);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.snippet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.snippet-head .muted { margin-top: 4px; }
+.integration-snippet {
+  margin: 0;
+  max-height: none;
+  overflow: auto;
+}
+.key-binding-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.key-binding-editor select {
+  min-width: 0;
 }
 .inline-alert { background: #fef2f2; color: #b91c1c; padding: 16px; border-radius: var(--radius-md); font-size: 0.875rem; margin-bottom: 16px; border: 1px solid #fecaca; }
